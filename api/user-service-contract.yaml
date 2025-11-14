@@ -1,0 +1,527 @@
+﻿openapi: 3.0.1
+info:
+  title: User Service Prototype
+  version: 1.0.0
+  description: >
+    Contract-first API voor de User Service prototype in Project 42.
+    Bevat endpoints voor authenticatie, profielbeheer en opslag van decks en kaarten.
+
+servers:
+  - url: http://localhost:5000
+    description: Lokale development server
+  - url: http://localhost:8080
+    description: Docker container
+
+paths:
+  /_health:
+    get:
+      tags: [Health]
+      summary: Healthcheck van de User Service
+      responses:
+        '200':
+          description: Service is beschikbaar
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /users/register:
+    post:
+      tags: [Users]
+      summary: Registreert een nieuwe gebruiker
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '200':
+          description: Gebruiker succesvol geregistreerd
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserRegisteredResponse'
+        '400':
+          description: Ongeldige invoer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/login:
+    post:
+      tags: [Users]
+      summary: Logt een gebruiker in en retourneert een token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login geslaagd
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Ongeldige inloggegevens
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/resolve:
+    post:
+      tags: [Auth]
+      summary: Resolve een token naar een gebruiker
+      description: Wordt door de Controller gebruikt om een token te vertalen naar een userId.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolveTokenRequest'
+      responses:
+        '200':
+          description: Token succesvol vertaald naar gebruiker
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResolvedUser'
+        '401':
+          description: Ongeldig of onbekend token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/{id}:
+    get:
+      tags: [Users]
+      summary: Haalt het profiel van een gebruiker op
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unieke identifier van de gebruiker
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Profiel gevonden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '404':
+          description: Gebruiker niet gevonden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags: [Users]
+      summary: Werkt het profiel van een gebruiker bij
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unieke identifier van de gebruiker
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Profiel bijgewerkt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '404':
+          description: Gebruiker niet gevonden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /cards:
+    get:
+      tags: [Cards]
+      summary: Haalt alle kaarten van een gebruiker op
+      parameters:
+        - name: ownerId
+          in: query
+          required: true
+          description: UserId van de eigenaar
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Overzicht van kaarten voor de gebruiker
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OwnedCardsResponse'
+    post:
+      tags: [Cards]
+      summary: Voegt een nieuwe kaart toe aan de collectie van een gebruiker (mock)
+      parameters:
+        - name: ownerId
+          in: query
+          required: true
+          description: UserId van de eigenaar
+          schema:
+            type: string
+            format: uuid
+        - name: name
+          in: query
+          required: true
+          description: Naam van de kaart
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Kaart toegevoegd aan de collectie
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AddCardResponse'
+
+  /decks:
+    get:
+      tags: [Decks]
+      summary: Haalt alle decks van een gebruiker op
+      parameters:
+        - name: ownerId
+          in: query
+          required: true
+          description: UserId van de eigenaar
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Overzicht van decks voor de gebruiker
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Deck'
+    post:
+      tags: [Decks]
+      summary: Maakt een nieuw deck aan voor een gebruiker
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDeckRequest'
+      responses:
+        '200':
+          description: Deck aangemaakt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeckResponse'
+
+  /decks/{deckId}/cards:
+    post:
+      tags: [Decks]
+      summary: Voegt kaarten toe aan of verwijdert kaarten uit een deck
+      parameters:
+        - name: deckId
+          in: path
+          required: true
+          description: Id van het deck
+          schema:
+            type: string
+            format: uuid
+        - name: ownerId
+          in: query
+          required: true
+          description: UserId van de eigenaar van het deck
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModifyDeckCardsRequest'
+      responses:
+        '200':
+          description: Deck bijgewerkt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeckResponse'
+        '404':
+          description: Deck niet gevonden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /_controller/ping:
+    get:
+      tags: [Internal]
+      summary: Test de verbinding naar de Controller-service
+      responses:
+        '200':
+          description: Resultaat van de call naar de Controller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControllerPingResponse'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+        service:
+          type: string
+          example: UserService
+      required:
+        - status
+        - service
+
+    RegisterRequest:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+      required:
+        - username
+        - password
+
+    UserRegisteredResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        username:
+          type: string
+      required:
+        - userId
+        - username
+
+    LoginRequest:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+      required:
+        - username
+        - password
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+      required:
+        - token
+
+    ResolveTokenRequest:
+      type: object
+      properties:
+        token:
+          type: string
+      required:
+        - token
+
+    ResolvedUser:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+      required:
+        - userId
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        wins:
+          type: integer
+          format: int32
+          nullable: true
+        losses:
+          type: integer
+          format: int32
+          nullable: true
+      required:
+        - id
+        - username
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          nullable: true
+        wins:
+          type: integer
+          format: int32
+          nullable: true
+        losses:
+          type: integer
+          format: int32
+          nullable: true
+
+    Card:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+        - id
+        - name
+
+    OwnedCardsResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/Card'
+      required:
+        - userId
+        - cards
+
+    Deck:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        ownerId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        cardIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+        - id
+        - ownerId
+        - name
+        - cardIds
+
+    CreateDeckRequest:
+      type: object
+      properties:
+        ownerId:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+        - ownerId
+        - name
+
+    ModifyDeckCardsRequest:
+      type: object
+      properties:
+        addCardIds:
+          type: array
+          nullable: true
+          items:
+            type: string
+            format: uuid
+        removeCardIds:
+          type: array
+          nullable: true
+          items:
+            type: string
+            format: uuid
+
+    DeckResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        cardIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+        - id
+        - name
+        - cardIds
+
+    AddCardResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message
+
+    ControllerPingResponse:
+      type: object
+      properties:
+        controller:
+          type: string
+          example: http://localhost:5099/
+        status:
+          type: integer
+          format: int32
+          nullable: true
+        error:
+          type: string
+          nullable: true
+
+    ErrorResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        code:
+          type: string
+        message:
+          type: string
+      required:
+        - ok
+        - code
+        - message
